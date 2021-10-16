@@ -1,4 +1,6 @@
+from re import U
 import sys
+from mpmath.functions.functions import re
 import numpy as np
 import copy
 from sympy import Symbol, linsolve
@@ -11,6 +13,7 @@ indicators_matrix = []
 supply = []
 demand = []
 u = 0
+filename = ''
 
 def get_arguments() -> str:
     args = sys.argv
@@ -171,7 +174,7 @@ def vogel() -> None:
         else:
             index_higher = diff_in_cols.index(np.nanmax(np.array(tuple[0])))
             # get the min of the col
-            min_col = get_min_index_of_col(cost_matrix[:, index_higher], cols_ignored)
+            min_col = get_min_index_of_col(cost_matrix[:, index_higher], rows_ignored)
             if demand_copy[index_higher] <= 0:
                 minimum = supply_copy[min_col]
             elif supply_copy[min_col] <= 0:
@@ -230,7 +233,6 @@ def get_value_with_zero() -> str:
 def get_allocation_indices():
     global allocation_matrix
     allocation_indices = []
-    print(allocation_matrix)
     for i in range(len(allocation_matrix)):
         for j in range(len(allocation_matrix[0])):
             if not np.isnan(allocation_matrix[i][j]):
@@ -261,39 +263,126 @@ def fill_indicators_matrix():
                 equation = sol_u[i] + sol_v[j] - cost_matrix[i][j]
                 indicators_matrix[i][j] = equation
 
-
 def find_the_cycle():
     global indicators_matrix, allocation_matrix
     allocation_matrix_copy = copy.deepcopy(allocation_matrix)
     indicators_matrix = np.array(indicators_matrix)
     max_indicator_index = np.unravel_index(np.nanargmax(indicators_matrix, axis=None), indicators_matrix.shape)
-    print(max_indicator_index)
     rows_visited = [max_indicator_index[0]]
     cols_visited = [max_indicator_index[1]]
-    flag = True
-    while flag:
-        flag = False
+    changes = True
+    while changes:
+        changes = False
         for i in range(len(allocation_matrix_copy)):
             if i in rows_visited:
                 continue
             elif np.count_nonzero(~np.isnan(allocation_matrix_copy[i])) == 1:
                 allocation_matrix_copy[i,:] = np.NaN
-                flag = True
+                changes = True
                 break
-        flag = False
+        changes = False
         for j in range(len(allocation_matrix_copy[0])):
             if j in cols_visited:
                 continue
             elif np.count_nonzero(~np.isnan(allocation_matrix_copy[:,j])) == 1:
                 allocation_matrix_copy[:,j] = np.NaN
-                flag = True
+                changes = True
                 break
-    print()
-    print(allocation_matrix_copy)
+    return allocation_matrix_copy, max_indicator_index
 
-# def transport():
-#     zero_value = get_value_with_zero()
-#     print(zero_value)
+# se empieza por la fila
+# si es impar se le resta
+# si es par se le suma
+# saco el menor de los impares 
+# ese valor es el que tengo que sumar y restar
+
+def change_variables():
+    allocation_matrix_copy, max_indicator_index = find_the_cycle()
+    allocation_order = []
+    max_indicator_copy = copy.deepcopy(max_indicator_index)
+    non_Nan_elems_in_matrix =  np.count_nonzero(~np.isnan(allocation_matrix_copy))
+    while True:
+
+        for j in range(len(allocation_matrix_copy[0])):
+            row_value = allocation_matrix_copy[max_indicator_copy[0]][j]  
+            if not np.isnan(row_value):
+                allocation_order.append([row_value, (max_indicator_copy[0], j)])
+                max_indicator_copy = (max_indicator_copy[0], j)
+                allocation_matrix_copy[max_indicator_copy[0]][j] = np.NaN
+                break
+
+        if len(allocation_order) == non_Nan_elems_in_matrix:
+            break
+        
+        for i in range(len(allocation_matrix_copy)):
+            col_value = allocation_matrix_copy[i][max_indicator_copy[1]]  
+            if not np.isnan(col_value):
+                allocation_order.append([col_value, (i, max_indicator_copy[1])])
+                max_indicator_copy = (i, max_indicator_copy[1])
+                allocation_matrix_copy[i][max_indicator_copy[1]] = np.NaN
+                break
+
+        if len(allocation_order) == non_Nan_elems_in_matrix:
+            break
+
+    allocation_order = np.array(allocation_order, dtype=object)
+    evens = []
+    for i in range(len(allocation_order)):
+        if i % 2 == 0:
+            evens.append(allocation_order[i][0])
+    substaccion_value = min(evens)
+
+    for i in range(len(allocation_order)):
+        index = allocation_order[i][1]
+        value = allocation_order[i][0]
+        if i % 2 == 0:
+            operation = value - substaccion_value
+            if operation == 0:
+                allocation_matrix[index] = np.NaN
+            else:
+                allocation_matrix[index] = value - substaccion_value
+        else:
+            allocation_matrix[index] = value + substaccion_value
+    allocation_matrix[max_indicator_index] = substaccion_value
+
+def get_transport_solution():
+    allocation_indices = get_allocation_indices()
+    global u 
+    u = 0
+    for i,j in allocation_indices:
+        u += cost_matrix[i,j] * allocation_matrix[i,j]
+
+def is_optimal():
+    return np.nanmax(indicators_matrix) < 0
+
+def write_transport_solution(iteration):
+    allocation_matrix_df = pd.DataFrame(data=allocation_matrix)
+    indicators_matrix_df = pd.DataFrame(data=indicators_matrix)
+    new_file = '{0}_solution.txt'.format(filename)
+    with open(new_file, "a") as f:
+        txt_sol = f'Transport Algorithm\n\n' \
+                  f'iteration: {iteration}\n\n' \
+                  f'Indicators Table\n\n' \
+                  f'{indicators_matrix_df}\n\n' \
+                  f'Allocations Table\n\n' \
+                  f'{allocation_matrix_df}\n\n' \
+                  f'U: {u}\n\n'
+        f.write(txt_sol)
+    f.close
+
+def transport():
+    global indicators_matrix
+    indicators_matrix = np.full((len(cost_matrix), len(cost_matrix[0])), np.NaN)
+    i = 0
+    while True:
+        fill_indicators_matrix()
+        if is_optimal():
+            break
+        change_variables()
+        get_transport_solution()
+        write_transport_solution(i)
+        i += 1
+        indicators_matrix = np.full((len(cost_matrix), len(cost_matrix[0])), np.NaN)
 
 def get_headers() -> list:
     global cost_matrix
@@ -307,7 +396,7 @@ def get_headers() -> list:
     cols_header.append("Supply")
     return rows_header, cols_header
 
-def write_initial_solution(filename, method):
+def write_initial_solution(method):
     rows_header, cols_header = get_headers()
     supply_copy = copy.deepcopy(supply)
     supply_copy.append(np.NaN)
@@ -325,7 +414,6 @@ def write_initial_solution(filename, method):
         f.write(txt_sol)
     f.close
 
-
 if __name__ == "__main__":
     method, file = get_arguments()
     filename = file.split('.')[0]
@@ -334,9 +422,16 @@ if __name__ == "__main__":
     cost_matrix = np.array(data[2:])
     balance_costs()
     allocation_matrix = np.full((len(cost_matrix), len(cost_matrix[0])), np.NaN)
-    indicators_matrix = np.full((len(cost_matrix), len(cost_matrix[0])), np.NaN)
-    vogel()
-    # write_initial_solution(filename, "VOGEL")
-    fill_indicators_matrix()
-    find_the_cycle()
+    if method == "1":
+        north_west_corner()
+        write_initial_solution("NORTHWEST CORNER")
+        transport()
+    if method == "2":
+        vogel()
+        write_initial_solution("VOGEL")
+        transport()
+
+    #TODO debug p1.txt 
+    #TODO print v's and u's
+    #TODO implement Russell
 
