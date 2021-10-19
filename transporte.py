@@ -13,13 +13,26 @@ u = 0
 filename = ''
 
 def get_arguments() -> str:
+    """
+    get the terminal arguments
+
+    @return string
+        return the method and the file gets from terminal
+    """
     args = sys.argv
     if len(args) != 3:
         print("The arguments must be [method] [file]")
-        # exit(1)
+        exit(1)
     return args[1], args[2]
 
 def parse_file(file: str) -> list:
+    """
+    parse the file into a list of lists
+
+    @param: file: str   get the file
+    @return list
+        return the list of lists with the data of the file
+    """
     f = open(file, "r")
     arr = []
     for line in f:
@@ -29,6 +42,12 @@ def parse_file(file: str) -> list:
     return arr
 
 def balance_costs() -> None:
+    """
+    balance the costs of the cost table
+    append row of zeros or column of zeros
+
+    @return None
+    """
     global cost_matrix
     difference = sum(supply) - sum(demand)
     if difference < 0:
@@ -43,6 +62,13 @@ def balance_costs() -> None:
         cost_matrix = np.c_[cost_matrix, column]
     
 def north_west_corner() -> None:
+    """
+    northwest corner algorithm
+    get the northwest corner of the cost table and put the minimun value
+    between supply and demand.
+
+    @return None
+    """
     global u
     supply_copy = copy.deepcopy(supply)
     demand_copy = copy.deepcopy(demand)
@@ -61,8 +87,17 @@ def north_west_corner() -> None:
         if demand_copy[j] == 0 and j < len(demand) - 1:
             j += 1
 
-# take the diff beetwen the two min numbers of each row and column 
 def get_diff_beetwen_mins_in_rows(rows_ignored, cols_ignored) -> list:
+    """
+    get the difference between the two minimun numbers of each row
+    append the value to the list
+
+    @param: rows_ignored:   list  ignore the rows used in vogel
+    @param: column_ignored: list  ignore the columns used in vogel
+    @return list
+        return the list with the differences 
+        between the two minimun numbers of each row
+    """
     global cost_matrix
     diff_in_rows = []
     for i in range(len(cost_matrix)):
@@ -85,6 +120,16 @@ def get_diff_beetwen_mins_in_rows(rows_ignored, cols_ignored) -> list:
     return diff_in_rows
 
 def get_diff_beetwen_mins_in_cols(rows_ignored, cols_ignored) -> list:
+    """
+    get the difference between the two minimun numbers of each column
+    append the value to the list
+
+    @param: rows_ignored:   list  ignore the rows used in vogel
+    @param: column_ignored: list  ignore the columns used in vogel
+    @return list
+        return the list with the differences 
+        between the two minimun numbers of each column
+    """
     global cost_matrix
     diff_in_cols = []
     for i in range(len(cost_matrix[0])):
@@ -106,7 +151,16 @@ def get_diff_beetwen_mins_in_cols(rows_ignored, cols_ignored) -> list:
             diff_in_cols.append(mins[1] - mins[0])
     return diff_in_cols
 
-def get_max(diff_in_rows, diff_in_cols) -> tuple:
+def get_max_of_differences(diff_in_rows, diff_in_cols) -> tuple:
+    """
+    get the max value of the differences in rows and columns
+
+    @param: diff_in_rows:   list  differences of the two minimun values of the rows
+    @param: diff_in_cols:   list  differences of the two minimun values of the columns
+    @return tuple
+        return the max value and bool flag
+        to refer if it is from row or column
+    """
     max_rows = np.nanmax(np.array(diff_in_rows))
     max_cols = np.nanmax(np.array(diff_in_cols))
     if max_rows > max_cols :
@@ -117,6 +171,15 @@ def get_max(diff_in_rows, diff_in_cols) -> tuple:
         return (diff_in_rows, True)
 
 def get_min_index_of_row(row, cols_ignored) -> int:
+    """
+    get the min index of the row chosen
+
+    @param: row:            list  row with the max value   
+    @param: cols_ignored:   list  columns ignored in vogel
+    @return int
+        return an integer with the position of the minimun
+        value of the row
+    """
     new_row = []
     for i in range(len(row)):
         if i in cols_ignored:
@@ -126,6 +189,15 @@ def get_min_index_of_row(row, cols_ignored) -> int:
     return new_row.index(np.nanmin(np.array(new_row)))
 
 def get_min_index_of_col(col, rows_ignored) -> int:
+    """
+    get the min index of the column chosen
+
+    @param: col:            list  column with the max value   
+    @param: rows_ignored:   list  rows ignored in vogel
+    @return int
+        return an integer with the position of the minimun
+        value of the column
+    """
     new_col = []
     for i in range(len(col)):
         if i in rows_ignored:
@@ -135,6 +207,15 @@ def get_min_index_of_col(col, rows_ignored) -> int:
     return new_col.index(np.nanmin(np.array(new_col)))
  
 def vogel() -> None:
+    """
+    vogel algorithm
+    get the difference between the two minimun numbers of each row and column
+    get the max value of that substractions
+    put the min(supply, demand) into the min value of the row or column chosen
+    doing this operations until the supply and demand have been satisfied
+
+    @return None
+    """
     global u
     supply_copy = copy.deepcopy(supply)
     demand_copy = copy.deepcopy(demand)
@@ -144,7 +225,7 @@ def vogel() -> None:
           demand_copy.count(0) != len(demand_copy):
         diff_in_rows = get_diff_beetwen_mins_in_rows(rows_ignored, cols_ignored)
         diff_in_cols = get_diff_beetwen_mins_in_cols(rows_ignored, cols_ignored)
-        tuple = get_max(diff_in_rows, diff_in_cols) 
+        tuple = get_max_of_differences(diff_in_rows, diff_in_cols) 
         flag = tuple[1]
         if flag:
             index_higher = diff_in_rows.index(np.nanmax(np.array(tuple[0])))
@@ -189,6 +270,13 @@ def vogel() -> None:
                 rows_ignored.append(min_col)
 
 def calculate_cost_indeces() -> list:
+    """
+    calculate the cost indices of russell's algorithm
+    formula = max value of the row + max value of the col - actual position 
+
+    @return list
+        return a list with the ci values and their positions in tuple shape
+    """
     cost_indices = []
     for i in range(len(cost_matrix)):
         max_cost_row = max(cost_matrix[i])
@@ -199,11 +287,25 @@ def calculate_cost_indeces() -> list:
     return cost_indices
 
 def get_cost_indices_by_priority() -> list:
+    """
+    sort the cost indices list
+
+    @return list
+        return a sorted list with the ci values and their positions in tuple shape
+    """
     cost_indices = calculate_cost_indeces()
     cost_indices.sort(reverse=True)
     return cost_indices
 
 def russell() -> None:
+    """
+    Russell's algorithm
+    calculate the cost indices
+    sort the ci by priority max -> min 
+    put the min(supply, demand) until the supply and demand have been satisfied
+    
+    @return None
+    """
     global u
     cost_indices_by_priority = get_cost_indices_by_priority()
     supply_copy = copy.deepcopy(supply)
@@ -229,8 +331,13 @@ def russell() -> None:
             allocation_matrix[cost_indices_by_priority[i][1]] = minimun
             u += minimun * cost_matrix[cost_indices_by_priority[i][1]]
 
-
-def get_u_headers() -> None:
+def get_u_headers() -> list:
+    """
+    create the list with the u headers
+    [u1, u2, u3]
+    
+    @return list
+    """
     global allocation_matrix
     u_headers = []
     for i in range(len(allocation_matrix)):
@@ -238,14 +345,26 @@ def get_u_headers() -> None:
     return u_headers 
 
 def get_v_headers() -> list:
+    """
+    create the list with the v headers
+    [v1, v2, v3]
+    
+    @return list
+    """
     global allocation_matrix
     v_headers = []
     for i in range(len(allocation_matrix[0])):
         v_headers.append(Symbol("v" + str(i)))
     return v_headers
 
-def get_value_with_zero() -> str:
-    # find the value with more allocations
+def get_value_with_zero() -> list:
+    """
+    find the value with more allocations
+    and replace it in the list with zero 
+    [0, u2, u3]  
+    
+    @return list
+    """
     u_headers = get_u_headers()
     v_headers = get_v_headers()
     amount_alloc_in_us = []
@@ -269,6 +388,13 @@ def get_value_with_zero() -> str:
         return u_headers, v_headers
 
 def get_allocation_indices() -> list:
+    """
+    find the value with more allocations
+    and replace it in the list with zero 
+    [0, u2, u3]  
+    
+    @return list
+    """
     global allocation_matrix
     allocation_indices = []
     for i in range(len(allocation_matrix)):
@@ -278,6 +404,13 @@ def get_allocation_indices() -> list:
     return allocation_indices
 
 def find_equations() -> list:
+    """
+    find the u solutions and the v solutions
+    
+    @return list
+        return a list with the u solutions 
+        and a list with the v solutions 
+    """
     u_headers, v_headers = get_value_with_zero()
     allocation_indices = get_allocation_indices()
     equations = []
@@ -294,6 +427,12 @@ def find_equations() -> list:
     return u_sols, v_sols
 
 def fill_indicators_matrix() -> None:
+    """
+    fill the indicators table
+    formula ui + vj - cij
+
+    @return None
+    """
     u_sols, v_sols = find_equations()
     for i in range(len(allocation_matrix)):
         for j in range(len(allocation_matrix[0])):
@@ -302,6 +441,12 @@ def fill_indicators_matrix() -> None:
                 indicators_matrix[i][j] = equation
 
 def find_the_cycle() -> None:
+    """
+    Fill with nan's the rows and columns with an allocation
+    until arrive to the incoming variable
+    
+    @return None
+    """
     global indicators_matrix, allocation_matrix
     allocation_matrix_copy = copy.deepcopy(allocation_matrix)
     indicators_matrix = np.array(indicators_matrix)
@@ -328,13 +473,16 @@ def find_the_cycle() -> None:
                 break
     return allocation_matrix_copy, max_indicator_index
 
-# se empieza por la fila
-# si es impar se le resta
-# si es par se le suma
-# saco el menor de los impares 
-# ese valor es el que tengo que sumar y restar
-
 def change_variables() -> None:
+    """
+    create a list with the numbers of the cycle
+    get the min value of the even indeces
+    put that value in the incoming variable position
+    substract that value to the other numbers
+    update the allocation table
+
+    @return None
+    """
     allocation_matrix_copy, max_indicator_index = find_the_cycle()
     allocation_order = []
     max_indicator_copy = copy.deepcopy(max_indicator_index)
@@ -384,6 +532,12 @@ def change_variables() -> None:
     allocation_matrix[max_indicator_index] = substaccion_value
 
 def get_transport_solution() -> None:
+    """
+    get the transport solution multiply 
+    the allocations by the costs in their respective positions
+
+    @return None
+    """
     allocation_indices = get_allocation_indices()
     global u 
     u = 0
@@ -391,9 +545,15 @@ def get_transport_solution() -> None:
         u += cost_matrix[i,j] * allocation_matrix[i,j]
 
 def is_optimal() -> bool:
-    return np.nanmax(indicators_matrix) < 0
+    return np.nanmax(indicators_matrix) <= 0
 
 def write_transport_solution(iteration: int) -> None:
+    """
+    write the transport solution in the file
+
+    @param iteration: int 
+    @return None
+    """
     u_headers, v_headers = get_u_headers(), get_v_headers()
     u_headers = ["", *u_headers]
     v_headers = ["", *v_headers]
@@ -416,12 +576,24 @@ def write_transport_solution(iteration: int) -> None:
     f.close
 
 def transport() -> None:
+    """
+    this function use the above auxiliary functions
+    to do the transport algorithm
+
+    @return None
+    """
     global indicators_matrix
     indicators_matrix = np.full((len(cost_matrix), len(cost_matrix[0])), np.NaN)
     i = 0
     while True:
         fill_indicators_matrix()
         if is_optimal():
+            txt_sol = f'Transport Algorithm\n\n' \
+                  f'[LAST ITERATION]\n' \
+                  f'Allocations Table\n\n' \
+                  f'{allocation_matrix}\n\n' \
+                  f'U: {u}\n\n'
+            print(txt_sol)
             break
         change_variables()
         get_transport_solution()
@@ -430,6 +602,13 @@ def transport() -> None:
         indicators_matrix = np.full((len(cost_matrix), len(cost_matrix[0])), np.NaN)
 
 def get_headers() -> list:
+    """
+    get the headers of the cost table
+    [01, 02, 03]
+    [D1, D2, D3]
+
+    @return list
+    """
     global cost_matrix
     rows_header = []
     cols_header = []
@@ -442,6 +621,12 @@ def get_headers() -> list:
     return rows_header, cols_header
 
 def write_initial_solution(method: str) -> None:
+    """
+    write the initial solution in the file
+
+    @param method: str   [northwest corner, vogel, russell's] 
+    @return None
+    """
     rows_header, cols_header = get_headers()
     supply_copy = copy.deepcopy(supply)
     supply_copy.append(np.NaN)
@@ -457,9 +642,26 @@ def write_initial_solution(method: str) -> None:
                   f'{allocation_matrix_df}\n\n' \
                   f'U: {u}\n\n'
         f.write(txt_sol)
+        print(txt_sol)
     f.close
 
+def is_degenerated() -> bool:
+    """
+    check if it is degenerated solution
+
+    @return bool
+    """
+    allocation_indices = get_allocation_indices()
+    m = len(allocation_matrix[0])
+    n = len(allocation_matrix)
+    return len(allocation_indices) != (m + n - 1)
+
 if __name__ == "__main__":
+    """
+    main function
+
+    @return None
+    """
     method, file = get_arguments()
     filename = file.split('.')[0]
     data = parse_file(file)
@@ -470,15 +672,21 @@ if __name__ == "__main__":
     if method == "1":
         north_west_corner()
         write_initial_solution("NORTHWEST CORNER")
+        if is_degenerated():
+            print("[DEGENERATED SOLUTION]")
+            exit(1)
         transport()
     elif method == "2":
         vogel()
         write_initial_solution("VOGEL")
+        if is_degenerated():
+            print("[DEGENERATED SOLUTION]")
+            exit(1)
         transport()
     elif method == "3":
         russell()
         write_initial_solution("RUSSELL")
+        if is_degenerated():
+            print("[DEGENERATED SOLUTION]")
+            exit(1)
         transport()
-    
-    #TODO debug p1.txt 
-
