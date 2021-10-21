@@ -591,7 +591,7 @@ def transport() -> None:
             txt_sol = f'Transport Algorithm\n\n' \
                   f'[LAST ITERATION]\n' \
                   f'Allocations Table\n\n' \
-                  f'{allocation_matrix}\n\n' \
+                  f'{pd.DataFrame(data=allocation_matrix)}\n\n' \
                   f'U: {u}\n\n'
             print(txt_sol)
             break
